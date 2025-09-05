@@ -1,21 +1,40 @@
 import os
 import time
+import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
-# Token del bot desde variable de entorno
-TOKEN = os.getenv("BOT_TOKEN")
+# ========================
+# Configuración de logs
+# ========================
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
-# Enlaces
+# ========================
+# Token del bot
+# ========================
+TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ Falta la variable de entorno BOT_TOKEN")
+
+# ========================
+# Enlaces y tags
+# ========================
 CANAL_TELEGRAM = "https://t.me/+lm9xHiJWrYhjOTUx"
 GRUPO_DISCORD = "https://discord.gg/S3n3cuMP3J"
 ADMIN_TAG = "@gh_wpr"
 
-# Tiempo mínimo entre respuestas por usuario (en segundos)
-MIN_INTERVAL = 30
+# ========================
+# Control de spam
+# ========================
+MIN_INTERVAL = 30  # tiempo mínimo entre respuestas por usuario (segundos)
 last_response_time = {}
 
-# Diccionario de respuestas por palabra clave
+# ========================
+# Diccionario de respuestas
+# ========================
 RESPUESTAS = {
     "descargas": f"📥 Canal de descargas: {CANAL_TELEGRAM}",
     "descargar": f"📥 Canal de descargas: {CANAL_TELEGRAM}",
@@ -35,8 +54,13 @@ RESPUESTAS = {
     "errores": f"⚠️ {ADMIN_TAG}, hay un problema reportado.",
 }
 
-# Función principal que detecta palabras clave y responde
+# ========================
+# Función de respuesta
+# ========================
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+
     user_id = update.message.from_user.id
     now = time.time()
 
@@ -51,7 +75,14 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
             last_response_time[user_id] = now
             break
 
-# Inicializa el bot
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
-app.run_polling()
+# ========================
+# Inicialización del bot
+# ========================
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
+    logging.info("🤖 Bot iniciado y escuchando mensajes...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
