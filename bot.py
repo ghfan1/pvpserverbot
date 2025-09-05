@@ -1,11 +1,14 @@
 import os
 import time
-import threading
 from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
-# Token del bot desde variable de entorno
+# ========================
+# Configuración
+# ========================
+
+# Token del bot (cárgalo en Render como variable de entorno BOT_TOKEN)
 TOKEN = os.getenv("BOT_TOKEN")
 
 # Enlaces
@@ -13,7 +16,7 @@ CANAL_TELEGRAM = "https://t.me/+lm9xHiJWrYhjOTUx"
 GRUPO_DISCORD = "https://discord.gg/S3n3cuMP3J"
 ADMIN_TAG = "@gh_wpr"
 
-# Tiempo mínimo entre respuestas por usuario (en segundos)
+# Tiempo mínimo entre respuestas por usuario (anti-spam, en segundos)
 MIN_INTERVAL = 30
 last_response_time = {}
 
@@ -37,11 +40,25 @@ RESPUESTAS = {
     "errores": f"⚠️ {ADMIN_TAG}, hay un problema reportado.",
 }
 
-# Función principal que detecta palabras clave y responde
+# ========================
+# Flask para el "keep-alive"
+# ========================
+
+server = Flask(__name__)
+
+@server.route("/")
+def home():
+    return "🤖 Bot corriendo en Render 🚀"
+
+# ========================
+# Función principal de respuesta
+# ========================
+
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     now = time.time()
 
+    # Control de spam
     if user_id in last_response_time and now - last_response_time[user_id] < MIN_INTERVAL:
         return
 
@@ -52,27 +69,19 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
             last_response_time[user_id] = now
             break
 
-# Flask app para Render
-flask_app = Flask(__name__)
-
-@flask_app.route("/")
-def home():
-    return "OK", 200
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    flask_app.run(host="0.0.0.0", port=port)
+# ========================
+# Main
+# ========================
 
 def main():
-    # Arrancamos Flask en segundo plano
-    threading.Thread(target=run_flask, daemon=True).start()
+    if not TOKEN:
+        raise ValueError("❌ No se encontró BOT_TOKEN en las variables de entorno")
 
-    # Arrancamos el bot en modo polling
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
 
     print("🤖 Bot iniciado con polling...")
-    app.run_polling()
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
