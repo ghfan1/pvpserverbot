@@ -1,2 +1,2 @@
 # pvpserverbot
-Un bit para mensajes automáticos en telegram 
+Un bot para mensajes automáticos en telegram 
