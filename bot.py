@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from flask import Flask
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
@@ -7,20 +8,15 @@ from telegram.ext import Application, MessageHandler, ContextTypes, filters
 # ========================
 # Configuración
 # ========================
-
-# Token del bot (cárgalo en Render como variable de entorno BOT_TOKEN)
 TOKEN = os.getenv("BOT_TOKEN")
 
-# Enlaces
 CANAL_TELEGRAM = "https://t.me/+lm9xHiJWrYhjOTUx"
 GRUPO_DISCORD = "https://discord.gg/S3n3cuMP3J"
 ADMIN_TAG = "@gh_wpr"
 
-# Tiempo mínimo entre respuestas por usuario (anti-spam, en segundos)
-MIN_INTERVAL = 30
+MIN_INTERVAL = 30  # Anti-spam por usuario
 last_response_time = {}
 
-# Diccionario de respuestas por palabra clave
 RESPUESTAS = {
     "descargas": f"📥 Canal de descargas: {CANAL_TELEGRAM}",
     "descargar": f"📥 Canal de descargas: {CANAL_TELEGRAM}",
@@ -41,46 +37,54 @@ RESPUESTAS = {
 }
 
 # ========================
-# Flask para el "keep-alive"
+# Logging
 # ========================
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
+# ========================
+# Flask (opcional, keep-alive)
+# ========================
 server = Flask(__name__)
 
 @server.route("/")
 def home():
-    return "🤖 Bot corriendo en Render 🚀"
+    return "🤖 Bot corriendo en grupo 🚀"
 
 # ========================
-# Función principal de respuesta
+# Función de respuesta en grupo
 # ========================
-
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+
     user_id = update.message.from_user.id
     now = time.time()
 
-    # Control de spam
+    # Anti-spam por usuario
     if user_id in last_response_time and now - last_response_time[user_id] < MIN_INTERVAL:
         return
 
     texto = update.message.text.lower()
     for palabra, respuesta in RESPUESTAS.items():
         if palabra in texto:
-            await update.message.reply_text(respuesta)
+            # Responde en el mismo grupo
+            await context.bot.send_message(chat_id=update.message.chat.id, text=respuesta)
             last_response_time[user_id] = now
             break
 
 # ========================
 # Main
 # ========================
-
 def main():
     if not TOKEN:
-        raise ValueError("❌ No se encontró BOT_TOKEN en las variables de entorno")
+        raise ValueError("❌ BOT_TOKEN no encontrado")
 
     application = Application.builder().token(TOKEN).build()
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, responder))
 
-    print("🤖 Bot iniciado con polling...")
+    print("🤖 Bot iniciado en grupo...")
     application.run_polling()
 
 if __name__ == "__main__":
