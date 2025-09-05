@@ -1,6 +1,8 @@
 import os
 import time
 import logging
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
@@ -76,9 +78,26 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
             break
 
 # ========================
+# Servidor Flask (Render necesita puerto abierto)
+# ========================
+app_flask = Flask(__name__)
+
+@app_flask.route("/")
+def index():
+    return "🤖 Bot de Telegram activo", 200
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app_flask.run(host="0.0.0.0", port=port)
+
+# ========================
 # Inicialización del bot
 # ========================
 def main():
+    # Levantar Flask en un hilo aparte
+    threading.Thread(target=run_flask, daemon=True).start()
+
+    # Levantar bot en modo polling
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
     logging.info("🤖 Bot iniciado y escuchando mensajes...")
